@@ -13,12 +13,41 @@ import { Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useRef } from "react";
 
+// Tipos explícitos para entidades
+interface User {
+  id: number | string;
+  name?: string;
+  email?: string;
+}
+
+interface Chat {
+  id: number | string;
+  name?: string;
+  last_message?: string;
+}
+
+interface Message {
+  id: number | string;
+  user_id: number | string;
+  content: string;
+  created_at: string;
+  edited?: boolean;
+}
+
+interface PendingChat {
+  id: string;
+  name: string;
+  last_message: string;
+  pending: boolean;
+  userId: number | string;
+}
+
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export function ChatView() {
   // Mock: userId do usuário autenticado
   const { data: session } = useSession();
-  const userId = (session?.user as any)?.id;
+  const userId = (session?.user as User)?.id;
   const { data: chats, isLoading: loadingChats } = useSWR(userId ? `/api/chats?userId=${userId}` : null, fetcher);
   const [selectedChat, setSelectedChat] = useState<number | null>(null);
   const chatId = selectedChat !== null && chats ? chats[selectedChat]?.id : null;
@@ -29,11 +58,11 @@ export function ChatView() {
   );
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<User[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<{ [userId: number]: boolean }>({});
-  const [pendingChats, setPendingChats] = useState<any[]>([]);
+  const [pendingChats, setPendingChats] = useState<PendingChat[]>([]);
   const [messageText, setMessageText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -64,14 +93,14 @@ export function ChatView() {
   useEffect(() => {
     if (!session?.user) return;
     if (!searchResults.length) return;
-    const userId = (session.user as any)?.id;
+    const userId = (session.user as User)?.id;
     const fetchPendings = async () => {
       const pendings: { [userId: number]: boolean } = {};
-      await Promise.all(searchResults.map(async (user: any) => {
+      await Promise.all(searchResults.map(async (user: User) => {
         if (user.id === userId) return;
         const res = await fetch(`/api/notifications?fromUserId=${userId}&toUserId=${user.id}`);
         const data = await res.json();
-        pendings[user.id] = !!data.pending;
+        pendings[user.id as number] = !!data.pending;
       }));
       setPendingRequests(pendings);
     };
@@ -79,8 +108,8 @@ export function ChatView() {
   }, [searchResults, session]);
 
   // Quando enviar solicitação, adicionar chat pendente
-  const handleSendRequest = async (user: any) => {
-    const userId = (session?.user as any)?.id;
+  const handleSendRequest = async (user: User) => {
+    const userId = (session?.user as User)?.id;
     if (!userId || !session?.user) {
       toast.error("Você precisa estar autenticado para solicitar um chat.");
       return;
@@ -89,7 +118,7 @@ export function ChatView() {
       toast.error("Não é possível iniciar chat consigo mesmo.");
       return;
     }
-    if (pendingRequests[user.id]) {
+    if (pendingRequests[user.id as number]) {
       toast("Já existe uma solicitação pendente para este usuário.");
       return;
     }
@@ -111,11 +140,11 @@ export function ChatView() {
         toast.success("Solicitação de chat enviada!");
         setNewChatOpen(false);
         setSearchTerm("");
-        setPendingRequests((prev: any) => ({ ...prev, [user.id]: true }));
-        setPendingChats((prev: any[]) => [
+        setPendingRequests((prev) => ({ ...prev, [user.id as number]: true }));
+        setPendingChats((prev) => [
           {
             id: `pending-${user.id}`,
-            name: user.name || user.email,
+            name: user.name || user.email || "",
             last_message: "Solicitação pendente",
             pending: true,
             userId: user.id,
@@ -135,12 +164,12 @@ export function ChatView() {
     if (!pendingChats.length) return;
     // Se o chat real aparecer na lista, remove o pendente
     if (chats) {
-      setPendingChats((prev: any[]) => prev.filter(p => !chats.some((c: any) => c.name === p.name)));
+      setPendingChats((prev) => prev.filter(p => !chats.some((c: Chat) => c.name === p.name)));
     }
     // Se a pendência sumir (notificação removida), remove também
     Object.entries(pendingRequests).forEach(([uid, pending]) => {
       if (!pending) {
-        setPendingChats((prev: any[]) => prev.filter(p => p.userId?.toString() !== uid));
+        setPendingChats((prev) => prev.filter(p => p.userId?.toString() !== uid));
       }
     });
   }, [chats, pendingRequests]);
@@ -193,8 +222,11 @@ export function ChatView() {
   };
 
   // Função para iniciar edição
-  const handleStartEdit = (msg: any) => {
-    setEditingMessageId(msg.id);
+  const handleStartEdit = (msg: Message) => {
+    const idNum = typeof msg.id === "number" ? msg.id : Number(msg.id);
+    if (!isNaN(idNum)) {
+      setEditingMessageId(idNum);
+    }
     setEditingMessageText(msg.content);
   };
 
@@ -319,7 +351,7 @@ export function ChatView() {
           {/* Mensagens */}
           <div className="flex-1 overflow-y-auto px-2 md:px-6 py-2 md:py-4 flex flex-col gap-2 bg-background pb-8">
             {loadingMessages && <div className="text-muted-foreground">Carregando mensagens...</div>}
-            {messages && messages.map((msg: any) => {
+            {messages && messages.map((msg: Message) => {
               const isOwn = String(msg.user_id) === String(userId);
               console.log('msg.id:', msg.id, 'msg.user_id:', msg.user_id, 'isOwn:', isOwn);
               const isEditing = editingMessageId === msg.id;
@@ -380,7 +412,10 @@ export function ChatView() {
                                 </button>
                                 <button
                                   className="w-full text-left px-2 py-1 rounded hover:bg-destructive/20 text-destructive transition text-sm"
-                                  onClick={() => handleDeleteMessage(msg.id)}
+                                  onClick={() => {
+                                    const idNum = typeof msg.id === "number" ? msg.id : Number(msg.id);
+                                    if (!isNaN(idNum)) handleDeleteMessage(idNum);
+                                  }}
                                   type="button"
                                 >
                                   Remover
@@ -414,10 +449,27 @@ export function ChatView() {
   );
 }
 
+// Tipar as props do SidebarContent
+interface SidebarContentProps {
+  chats: Chat[];
+  loadingChats: boolean;
+  selectedChat: number | null;
+  setSelectedChat: (idx: number) => void;
+  newChatOpen: boolean;
+  setNewChatOpen: (open: boolean) => void;
+  searchTerm: string;
+  setSearchTerm: (v: string) => void;
+  searchResults: User[];
+  searchLoading: boolean;
+  session: any;
+  pendingRequests: Record<string, boolean>;
+  pendingChats: PendingChat[];
+  handleSendRequest: (user: User) => void;
+}
 // SidebarContent extraído para evitar duplicação
 function SidebarContent({
   chats, loadingChats, selectedChat, setSelectedChat, newChatOpen, setNewChatOpen, searchTerm, setSearchTerm, searchResults, searchLoading, session, pendingRequests, pendingChats, handleSendRequest
-}: any) {
+}: SidebarContentProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b flex items-center gap-2">
@@ -444,17 +496,17 @@ function SidebarContent({
                 <div className="text-xs text-muted-foreground px-2 py-1">Nenhum usuário encontrado.</div>
               )}
               <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
-                {searchResults.map((user: any) => (
+                {searchResults.map((user: User) => (
                   <button
                     key={user.id}
-                    className={`w-full text-left px-3 py-2 rounded hover:bg-accent transition flex flex-col border border-transparent hover:border-primary relative ${pendingRequests[user.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    className={`w-full text-left px-3 py-2 rounded hover:bg-accent transition flex flex-col border border-transparent hover:border-primary relative ${pendingRequests[user.id as string] ? 'opacity-60 cursor-not-allowed' : ''}`}
                     onClick={() => handleSendRequest(user)}
                     type="button"
-                    disabled={pendingRequests[user.id]}
+                    disabled={pendingRequests[user.id as string]}
                   >
                     <span className="font-medium text-sm flex items-center gap-2">
                       {user.name || user.email}
-                      {pendingRequests[user.id] && <Badge variant="secondary" className="ml-2">Pendente</Badge>}
+                      {pendingRequests[user.id as string] && <Badge variant="secondary" className="ml-2">Pendente</Badge>}
                     </span>
                     <span className="text-xs text-muted-foreground">{user.email}</span>
                   </button>
@@ -467,7 +519,7 @@ function SidebarContent({
       <div className="border-b" />
       <div className="flex-1 overflow-y-auto">
         {/* Chats pendentes no topo */}
-        {pendingChats.map((chat: any) => (
+        {pendingChats.map((chat: PendingChat) => (
           <div
             key={chat.id}
             className="flex items-center gap-3 px-4 py-3 cursor-not-allowed border-b bg-muted/60 relative"
@@ -483,7 +535,7 @@ function SidebarContent({
           </div>
         ))}
         {/* Chats reais */}
-        {chats && chats.map((chat: any, idx: number) => (
+        {chats && chats.map((chat: Chat, idx: number) => (
           <div
             key={chat.id}
             className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b hover:bg-accent transition ${selectedChat === idx ? "bg-primary/10" : ""}`}

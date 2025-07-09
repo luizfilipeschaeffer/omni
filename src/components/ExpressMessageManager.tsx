@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useExpressMessage, ExpressMessageType, ExpressMessage } from "@/components/ExpressMessageContext";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Edit, Trash2, Plus } from "lucide-react";
+import { CalendarIcon, Trash2, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useNotifications } from "@/components/NotificationsContext";
@@ -252,7 +252,7 @@ export function ExpressMessageManager() {
                   <select
                     className="border rounded px-2 py-1"
                     value={form.recurrence}
-                    onChange={e => setForm(f => ({ ...f, recurrence: e.target.value as any }))}
+                    onChange={e => setForm(f => ({ ...f, recurrence: e.target.value as ExpressMessage["recurrence"] || "none" }))}
                   >
                     {recurrenceOptions.map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>

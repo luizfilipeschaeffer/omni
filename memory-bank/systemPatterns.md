@@ -25,4 +25,4 @@
 - ChatModal: view principal do chat
 - SidebarContent: lista de conversas
 - BottomBar: status e ações globais
-- Mensagens: renderizadas dinamicamente, com ações inline 
+- Mensagens: renderizadas dinamicamente, com ações inline

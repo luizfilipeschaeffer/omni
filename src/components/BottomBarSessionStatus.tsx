@@ -1,6 +1,5 @@
 "use client";
-import { useSession, signOut } from "next-auth/react";
-import { LogOut } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 const statusMap: Record<string, string> = {
   authenticated: "Autenticado",

@@ -19,10 +19,10 @@ export function BottomBarNotifications() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const readCount = notifications.filter((n) => n.read).length;
   const { data: session } = useSession();
-  const userId = (session?.user as any)?.id;
+  const userId = (session?.user as { id: string })?.id;
   const { data: notificationsApi, mutate } = useSWR(userId ? `/api/notifications/user/${userId}` : null, url => fetch(url).then(r => r.json()));
 
-  async function handleAccept(notif: any) {
+  async function handleAccept(notif: { id: number; data: { fromUserId: string; fromUserName?: string; fromUserEmail?: string } }) {
     // Cria chat entre userId e fromUserId
     try {
       const res = await fetch("/api/chats", {
@@ -127,7 +127,7 @@ export function BottomBarNotifications() {
               </div>
             ))
           )}
-          {notificationsApi && notificationsApi.filter((n: any) => n.type === "chat_request").map((notif: any) => (
+          {notificationsApi && notificationsApi.filter((n: { type: string }) => n.type === "chat_request").map((notif: { id: number; data: { fromUserId: string; fromUserName?: string; fromUserEmail?: string } }) => (
             <div key={notif.id} className="p-2 border-b flex flex-col gap-1">
               <div className="text-sm">
                 <b>{notif.data.fromUserName || notif.data.fromUserEmail}</b> quer iniciar um chat com você.

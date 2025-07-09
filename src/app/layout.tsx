@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { NotificationsProvider } from "@/components/NotificationsContext";
-import { AuthProvider } from "@/components/SimpleAuthContext";
 import { AvisoModal } from "@/components/AvisoModal";
 import { ExpressMessageProvider } from "@/components/ExpressMessageContext";
 import { DialogExpresso } from "@/components/DialogExpresso";
