@@ -24,6 +24,7 @@ interface Chat {
   id: number | string;
   name?: string;
   last_message?: string;
+  participants?: User[]; // Adicionado para armazenar participantes
 }
 
 interface Message {
@@ -43,6 +44,13 @@ interface PendingChat {
 }
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
+
+// Função utilitária para pegar o nome do contato
+function getContactName(chat: Chat, userId: string | number) {
+  if (!chat?.participants) return "Chat Privado";
+  const contact = chat.participants.find((u: User) => String(u.id) !== String(userId));
+  return contact?.name || contact?.email || "Chat Privado";
+}
 
 export function ChatView() {
   // Mock: userId do usuário autenticado
@@ -312,7 +320,9 @@ export function ChatView() {
             <User className="text-muted-foreground" size={28} />
             <div className="flex-1 min-w-0">
               <div className="font-bold text-base md:text-lg truncate flex items-center gap-2">
-                {chats && selectedChat !== null ? (chats[selectedChat]?.name || "Chat Privado") : ""}
+                {chats && selectedChat !== null
+                  ? getContactName(chats[selectedChat], userId)
+                  : ""}
                 {chats && selectedChat !== null && (
                   <button
                     className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive transition"

@@ -22,7 +22,18 @@ export async function GET(req: NextRequest) {
        ORDER BY c.created_at DESC`,
       [userId]
     );
-    return NextResponse.json(chats.rows);
+    // Buscar participantes para cada chat
+    const chatRows = chats.rows;
+    for (const chat of chatRows) {
+      const usersRes = await client.query(
+        `SELECT u.id, u.name, u.email FROM users u
+         JOIN memberships m ON m.user_id = u.id
+         WHERE m.chat_id = $1`,
+        [chat.id]
+      );
+      chat.participants = usersRes.rows;
+    }
+    return NextResponse.json(chatRows);
   } finally {
     await client.end();
   }
