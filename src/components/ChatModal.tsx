@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { User, Search, Info, CircleDot, Trash, Pencil } from "lucide-react";
+import { User, Search, Info, Trash, Pencil, X } from "lucide-react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect } from "react";
@@ -52,7 +52,11 @@ function getContactName(chat: Chat, userId: string | number) {
   return contact?.name || contact?.email || "Chat Privado";
 }
 
-export function ChatView() {
+interface ChatViewProps {
+  onClose?: () => void;
+}
+
+export function ChatView({ onClose }: ChatViewProps) {
   // Mock: userId do usuário autenticado
   const { data: session } = useSession();
   const userId = (session?.user as User)?.id;
@@ -268,7 +272,10 @@ export function ChatView() {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
-      <div className="w-[95vw] max-w-full h-[90vh] max-h-[90vh] p-0 overflow-hidden rounded-none bg-background shadow-xl flex flex-col md:flex-row border-0 md:rounded-xl md:border-1 md:border-primary/40">
+      {/* Backdrop com blur */}
+      <div className="absolute inset-0 bg-background/10 backdrop-blur-sm transition-opacity duration-200" />
+      
+      <div className="relative w-[95vw] max-w-full h-[90vh] max-h-[90vh] p-0 overflow-hidden rounded-none bg-background shadow-xl flex flex-col md:flex-row border-0 md:rounded-xl md:border-1 md:border-primary/40 transition-all duration-200 transform scale-100">
         {/* Sidebar mobile: Sheet */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
@@ -346,20 +353,46 @@ export function ChatView() {
                 )}
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
-                <CircleDot className="text-green-500" size={12} /> Online
+                {/* Status removido */}
               </div>
             </div>
-            <Button size="icon" variant="ghost" title="Ver dados do contato">
-              <Info size={20} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="icon" variant="ghost" title="Ver dados do contato">
+                <Info size={20} />
+              </Button>
+              {onClose && (
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  title="Fechar chat"
+                  onClick={onClose}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X size={20} />
+                </Button>
+              )}
+            </div>
           </div>
           <div className="border-b" />
           {/* Mensagens */}
           <div className="flex-1 overflow-y-auto px-2 md:px-6 py-2 md:py-4 flex flex-col gap-2 bg-background pb-8">
             {loadingMessages && <div className="text-muted-foreground">Carregando mensagens...</div>}
-            {messages && messages.map((msg: Message) => {
-              const isOwn = String(msg.user_id) === String(userId);
-              console.log('msg.id:', msg.id, 'msg.user_id:', msg.user_id, 'isOwn:', isOwn);
+            {!userId && <div className="text-muted-foreground">Usuário não autenticado</div>}
+            {messages && userId && messages.map((msg: Message) => {
+              // Garantir que a comparação seja feita corretamente
+              const currentUserId = String(userId);
+              const messageUserId = String(msg.user_id);
+              const isOwn = currentUserId === messageUserId;
+              
+              console.log('Debug mensagem:', {
+                msgId: msg.id,
+                messageUserId: messageUserId,
+                currentUserId: currentUserId,
+                isOwn: isOwn,
+                userIdType: typeof userId,
+                msgUserIdType: typeof msg.user_id
+              });
+              
               const isEditing = editingMessageId === msg.id;
               return (
                 <div
@@ -368,7 +401,10 @@ export function ChatView() {
                 >
                   <div
                     className={`max-w-[75vw] md:max-w-[60vw] px-3 md:px-4 py-2 rounded-lg text-sm shadow-sm
-                      ${isOwn ? "bg-primary text-primary-foreground" : "bg-muted border border-border"}
+                      ${isOwn 
+                        ? "bg-primary text-primary-foreground ml-auto" 
+                        : "bg-muted border border-border mr-auto"
+                      }
                     `}
                     style={{ wordBreak: "break-word" }}
                   >
@@ -550,7 +586,6 @@ function SidebarContent({
               <div className="font-semibold truncate">{chat.name || "Chat Privado"}</div>
               <div className="text-xs text-muted-foreground truncate">{chat.last_message || "Sem mensagens"}</div>
             </div>
-            <CircleDot className="text-green-500" size={14} />
           </div>
         ))}
       </div>

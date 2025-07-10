@@ -7,7 +7,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process
 export async function GET(req: NextRequest, { params }: { params: Promise<{ chatId: string }> }) {
   const { chatId } = await params;
   const messages = await pool.query(
-    `SELECT m.id, m.user_id, u.name as user_name, m.content, m.created_at
+    `SELECT m.id, m.chat_id, m.user_id, u.name as user_name, m.content, m.created_at, m.updated_at, m.edited, m.viewed_at, m.viewed_by
      FROM messages m
      LEFT JOIN users u ON m.user_id = u.id
      WHERE m.chat_id = $1
@@ -22,14 +22,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   const { chatId } = await params;
   const body = await req.json();
   const { content, user_id } = body;
+  
+  // Validações
   if (!content || !user_id) {
     return NextResponse.json({ error: "Conteúdo e user_id são obrigatórios." }, { status: 400 });
   }
-  const result = await pool.query(
-    `INSERT INTO messages (chat_id, user_id, content, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, user_id, content, created_at`,
-    [chatId, user_id, content]
-  );
-  return NextResponse.json(result.rows[0], { status: 201 });
+  
+  if (typeof content !== 'string' || content.trim().length === 0) {
+    return NextResponse.json({ error: "Conteúdo deve ser uma string não vazia." }, { status: 400 });
+  }
+  
+  if (typeof user_id !== 'number' && typeof user_id !== 'string') {
+    return NextResponse.json({ error: "user_id deve ser um número ou string válido." }, { status: 400 });
+  }
+  
+  try {
+    const result = await pool.query(
+      `INSERT INTO messages (chat_id, user_id, content, created_at, edited, viewed_at, viewed_by) 
+       VALUES ($1, $2, $3, NOW(), FALSE, NULL, NULL) 
+       RETURNING id, chat_id, user_id, content, created_at, updated_at, edited, viewed_at, viewed_by`,
+      [chatId, user_id, content.trim()]
+    );
+    
+    if (result.rowCount === 0) {
+      return NextResponse.json({ error: "Erro ao criar mensagem." }, { status: 500 });
+    }
+    
+    return NextResponse.json(result.rows[0], { status: 201 });
+  } catch (error) {
+    console.error('Erro ao criar mensagem:', error);
+    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
+  }
 }
 
 // PUT: Edita o conteúdo de uma mensagem pelo id

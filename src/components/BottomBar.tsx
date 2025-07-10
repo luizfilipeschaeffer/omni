@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Laptop, CircleDot, LogOut } from "lucide-react";
+import { Sun, Moon, Laptop, CircleDot, LogOut, MessageCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BottomBarClock } from "@/components/BottomBarClock";
@@ -64,6 +64,27 @@ export function BottomBar() {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        {status === "authenticated" && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Chat"
+                  className="p-2 rounded-full hover:bg-primary/20 transition-colors"
+                  onClick={() => {
+                    console.log('Ícone de chat clicado na barra inferior');
+                    // Aqui você pode adicionar a lógica para abrir o chat
+                    // Por exemplo, emitir um evento ou chamar uma função
+                    window.dispatchEvent(new CustomEvent('openChat'));
+                  }}
+                >
+                  <MessageCircle size={18} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Chat</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         {status === "authenticated" && (
           <TooltipProvider>
             <Tooltip>
