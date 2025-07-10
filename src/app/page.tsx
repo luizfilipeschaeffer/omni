@@ -13,6 +13,67 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
 
+  // Verificar notificações pendentes quando o usuário inicia a sessão
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const checkPendingNotifications = async () => {
+      try {
+        const userId = (session.user as { id: string })?.id;
+        const response = await fetch(`/api/notifications/user/${userId}`);
+        const notifications = await response.json();
+        
+        const chatRequests = notifications.filter((n: { type: string; read: boolean }) => 
+          n.type === "chat_request" && !n.read
+        );
+
+        if (chatRequests.length > 0) {
+          // Mostrar toast de boas-vindas com notificações pendentes
+          toast.info(`Bem-vindo de volta! Você tem ${chatRequests.length} solicitação(ões) de chat pendente(s).`, {
+            description: "Clique no ícone de notificações para ver os detalhes.",
+            duration: 6000,
+            action: {
+              label: "Ver Notificações",
+              onClick: () => {
+                // Aqui você pode adicionar lógica para abrir o painel de notificações
+                console.log("Abrir painel de notificações");
+              }
+            }
+          });
+
+          // Notificação do sistema operacional
+          if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission === "granted") {
+              new Notification("Solicitações de chat pendentes", {
+                body: `Você tem ${chatRequests.length} solicitação(ões) de chat aguardando resposta.`,
+                icon: "/favicon.ico",
+                tag: "welcome-notifications",
+                requireInteraction: true
+              });
+            } else if (Notification.permission !== "denied") {
+              Notification.requestPermission().then((permission) => {
+                if (permission === "granted") {
+                  new Notification("Solicitações de chat pendentes", {
+                    body: `Você tem ${chatRequests.length} solicitação(ões) de chat aguardando resposta.`,
+                    icon: "/favicon.ico",
+                    tag: "welcome-notifications",
+                    requireInteraction: true
+                  });
+                }
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao verificar notificações pendentes:", error);
+      }
+    };
+
+    // Verificar após um pequeno delay para garantir que a sessão está carregada
+    const timer = setTimeout(checkPendingNotifications, 1000);
+    return () => clearTimeout(timer);
+  }, [session]);
+
   // Listener para o evento de abertura do chat da barra inferior
   useEffect(() => {
     const handleOpenChat = () => {
@@ -54,7 +115,7 @@ export default function Home() {
                 <Rocket className="w-6 h-6 text-white" />
               </div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-yellow-500 bg-clip-text text-transparent">
-                OmniChat
+                OmniPlatform
               </h1>
             </div>
             <Button 
@@ -74,16 +135,16 @@ export default function Home() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
             <Star className="w-4 h-4" />
-            Sistema em Desenvolvimento Contínuo
+            Plataforma Multi-Ferramentas em Desenvolvimento
           </div>
           
           <h2 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-yellow-500 bg-clip-text text-transparent">
-            O Futuro do Chat
+            OmniPlatform
           </h2>
           
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Uma plataforma moderna e inovadora que está sendo continuamente aprimorada 
-            para oferecer a melhor experiência de comunicação digital.
+            Uma plataforma completa de ferramentas digitais que começa com o chat para criar 
+            vínculos sólidos com seus clientes e assinantes. O futuro é multi-funcional.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -93,7 +154,7 @@ export default function Home() {
               onClick={() => setShowDrawer(true)}
             >
               <Users className="w-5 h-5 mr-2" />
-              Cadastre-se Agora
+              Começar Agora
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
             
@@ -115,9 +176,9 @@ export default function Home() {
             <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">Tecnologia Avançada</h3>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">Chat Inteligente</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Utilizamos as mais modernas tecnologias para garantir uma experiência fluida e responsiva.
+              Primeira ferramenta da plataforma para criar vínculos diretos com clientes e assinantes.
             </p>
           </div>
 
@@ -125,9 +186,9 @@ export default function Home() {
             <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl flex items-center justify-center mb-4">
               <Shield className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">Segurança Garantida</h3>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">Multi-Ferramentas</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Suas conversas são protegidas com criptografia de ponta a ponta e autenticação segura.
+              Plataforma em expansão contínua com novas ferramentas sendo desenvolvidas constantemente.
             </p>
           </div>
 
@@ -135,9 +196,9 @@ export default function Home() {
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-4">
               <MessageCircle className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">Chat em Tempo Real</h3>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">Crescimento Contínuo</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Sistema de mensagens instantâneas com interface intuitiva e recursos avançados.
+              Evolução constante com novas funcionalidades e ferramentas sendo adicionadas regularmente.
             </p>
           </div>
         </div>
@@ -147,16 +208,16 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium mb-6">
               <Rocket className="w-4 h-4" />
-              Beta Testing
+              Primeira Ferramenta
             </div>
             
             <h3 className="text-3xl md:text-4xl font-bold mb-4">
-              Chat em Fase de Testes
+              Chat: O Ponto de Partida
             </h3>
             
             <p className="text-lg mb-8 opacity-90">
-              Nossa funcionalidade de chat já está disponível para testes! 
-              Experimente a nova interface e nos ajude a melhorar a experiência.
+              Começamos com o chat para estabelecer conexões diretas com seus clientes. 
+              Esta é apenas a primeira ferramenta de uma plataforma muito maior que está por vir.
             </p>
             
             <Button 
@@ -165,7 +226,7 @@ export default function Home() {
               onClick={handleChatClick}
             >
               <MessageCircle className="w-5 h-5 mr-2" />
-              Acessar Chat Beta
+              Experimentar Chat
             </Button>
           </div>
         </div>
@@ -173,16 +234,16 @@ export default function Home() {
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-6 mb-16">
           <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">100%</div>
-            <div className="text-gray-600 dark:text-gray-300">Seguro</div>
+            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">1ª</div>
+            <div className="text-gray-600 dark:text-gray-300">Ferramenta</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-yellow-500 dark:text-yellow-400 mb-2">24/7</div>
-            <div className="text-gray-600 dark:text-gray-300">Disponível</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">∞</div>
+            <div className="text-3xl font-bold text-yellow-500 dark:text-yellow-400 mb-2">∞</div>
             <div className="text-gray-600 dark:text-gray-300">Possibilidades</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">+</div>
+            <div className="text-gray-600 dark:text-gray-300">Ferramentas</div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-green-500 dark:text-green-400 mb-2">🚀</div>

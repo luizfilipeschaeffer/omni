@@ -41,6 +41,9 @@ interface PendingChat {
   last_message: string;
   pending: boolean;
   userId: number | string;
+  notificationId?: number;
+  isReceived?: boolean; // Adicionado para indicar se é uma solicitação recebida
+  isSent?: boolean; // Adicionado para indicar se é uma solicitação enviada
 }
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -75,12 +78,69 @@ export function ChatView({ onClose }: ChatViewProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<{ [userId: number]: boolean }>({});
   const [pendingChats, setPendingChats] = useState<PendingChat[]>([]);
+  const [sentRequests, setSentRequests] = useState<PendingChat[]>([]);
   const [messageText, setMessageText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageText, setEditingMessageText] = useState("");
 
+  // Buscar notificações pendentes do usuário
+  const { data: userNotifications, mutate: mutateNotifications } = useSWR(
+    userId ? `/api/notifications/user/${userId}` : null,
+    fetcher,
+    { refreshInterval: 3000 } // Atualizar a cada 3 segundos
+  );
+
+  // Buscar solicitações enviadas pelo usuário
+  const { data: sentNotifications, mutate: mutateSentNotifications } = useSWR(
+    userId ? `/api/notifications/sent/${userId}` : null,
+    fetcher,
+    { refreshInterval: 1000 }
+  );
+
   console.log('userId autenticado:', userId);
+
+  // Processar notificações pendentes (recebidas) e criar chats pendentes
+  useEffect(() => {
+    if (!userNotifications || !userId) return;
+    
+    const chatRequests = userNotifications.filter((notif: { type: string; read: boolean }) => 
+      notif.type === 'chat_request' && !notif.read
+    );
+    
+    const newPendingChats: PendingChat[] = chatRequests.map((notif: { data: { fromUserId: string; fromUserName?: string; fromUserEmail?: string }; id: number }) => ({
+      id: `received-${notif.data.fromUserId}`,
+      name: notif.data.fromUserName || notif.data.fromUserEmail || "Usuário",
+      last_message: "Solicitação de conversa...",
+      pending: true,
+      userId: notif.data.fromUserId,
+      notificationId: notif.id,
+      isReceived: true
+    }));
+    
+    setPendingChats(newPendingChats);
+  }, [userNotifications, userId]);
+
+  // Processar solicitações enviadas pelo usuário
+  useEffect(() => {
+    if (!sentNotifications || !userId) return;
+    
+    const sentChatRequests = sentNotifications.filter((notif: { type: string; read: boolean }) => 
+      notif.type === 'chat_request' && !notif.read
+    );
+    
+    const newSentChats: PendingChat[] = sentChatRequests.map((notif: { data: { toUserId: string; toUserName?: string; toUserEmail?: string }; id: number }) => ({
+      id: `sent-${notif.data.toUserId}`,
+      name: notif.data.toUserName || notif.data.toUserEmail || "Usuário",
+      last_message: "PENDENTE",
+      pending: true,
+      userId: notif.data.toUserId,
+      notificationId: notif.id,
+      isSent: true
+    }));
+    
+    setSentRequests(newSentChats);
+  }, [sentNotifications, userId]);
 
   // Debounced search
   useEffect(() => {
@@ -119,6 +179,76 @@ export function ChatView({ onClose }: ChatViewProps) {
     fetchPendings();
   }, [searchResults, session]);
 
+  // Função para aceitar solicitação de chat
+  const handleAcceptChatRequest = async (pendingChat: PendingChat) => {
+    if (!userId || !pendingChat.notificationId) return;
+    
+    try {
+      // Criar o chat
+      const res = await fetch("/api/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userIds: [userId, pendingChat.userId],
+          name: `Chat com ${pendingChat.name}`,
+        }),
+      });
+      
+      if (res.ok) {
+        // Marcar notificação como lida
+        await fetch(`/api/notifications/user/${userId}?id=${pendingChat.notificationId}`, {
+          method: "DELETE"
+        });
+        
+        // Atualizar dados
+        mutateNotifications();
+        globalMutate((key) => typeof key === "string" && key.startsWith("/api/chats"));
+        
+        toast.success("Chat criado com sucesso!");
+      } else {
+        toast.error("Erro ao criar chat.");
+      }
+    } catch {
+      toast.error("Erro ao criar chat.");
+    }
+  };
+
+  // Função para recusar solicitação de chat
+  const handleRejectChatRequest = async (pendingChat: PendingChat) => {
+    if (!userId || !pendingChat.notificationId) return;
+    
+    try {
+      // Remover notificação
+      await fetch(`/api/notifications/user/${userId}?id=${pendingChat.notificationId}`, {
+        method: "DELETE"
+      });
+      
+      // Atualizar dados
+      mutateNotifications();
+      toast.success("Solicitação recusada.");
+    } catch {
+      toast.error("Erro ao recusar solicitação.");
+    }
+  };
+
+  // Função para cancelar solicitação enviada
+  const handleCancelSentRequest = async (sentChat: PendingChat) => {
+    if (!userId || !sentChat.notificationId) return;
+    
+    try {
+      // Remover notificação enviada
+      await fetch(`/api/notifications/sent/${userId}?id=${sentChat.notificationId}`, {
+        method: "DELETE"
+      });
+      
+      // Atualizar dados
+      mutateSentNotifications();
+      toast.success("Solicitação cancelada.");
+    } catch {
+      toast.error("Erro ao cancelar solicitação.");
+    }
+  };
+
   // Quando enviar solicitação, adicionar chat pendente
   const handleSendRequest = async (user: User) => {
     const userId = (session?.user as User)?.id;
@@ -153,16 +283,6 @@ export function ChatView({ onClose }: ChatViewProps) {
         setNewChatOpen(false);
         setSearchTerm("");
         setPendingRequests((prev) => ({ ...prev, [user.id as number]: true }));
-        setPendingChats((prev) => [
-          {
-            id: `pending-${user.id}`,
-            name: user.name || user.email || "",
-            last_message: "Solicitação pendente",
-            pending: true,
-            userId: user.id,
-          },
-          ...prev,
-        ]);
       } else {
         toast.error("Erro ao enviar solicitação.");
       }
@@ -270,6 +390,47 @@ export function ChatView({ onClose }: ChatViewProps) {
     setEditingMessageText("");
   };
 
+  // Função para solicitar exclusão de chat
+  const handleRequestChatDeletion = async (chat: Chat) => {
+    if (!userId || !chat.id) return;
+    
+    // Encontrar o outro participante do chat
+    const otherParticipant = chat.participants?.find((p: User) => String(p.id) !== String(userId));
+    if (!otherParticipant) {
+      toast.error("Não foi possível identificar o outro participante do chat.");
+      return;
+    }
+
+    try {
+      // Criar notificação de solicitação de exclusão
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: otherParticipant.id,
+          type: "chat_deletion_request",
+          data: {
+            fromUserId: userId,
+            fromUserName: session?.user?.name,
+            fromUserEmail: session?.user?.email,
+            chatId: chat.id,
+            chatName: chat.name || "Chat Privado"
+          },
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Solicitação de exclusão enviada! Aguardando aprovação do outro participante.");
+      } else {
+        toast.error("Erro ao enviar solicitação de exclusão.");
+      }
+    } catch {
+      toast.error("Erro ao enviar solicitação de exclusão.");
+    }
+  };
+
+
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
       {/* Backdrop com blur */}
@@ -294,7 +455,11 @@ export function ChatView({ onClose }: ChatViewProps) {
               searchLoading={searchLoading}
               pendingRequests={pendingRequests}
               pendingChats={pendingChats}
+              sentRequests={sentRequests}
               handleSendRequest={handleSendRequest}
+              handleAcceptChatRequest={handleAcceptChatRequest}
+              handleRejectChatRequest={handleRejectChatRequest}
+              handleCancelSentRequest={handleCancelSentRequest}
             />
           </SheetContent>
         </Sheet>
@@ -312,7 +477,11 @@ export function ChatView({ onClose }: ChatViewProps) {
             searchLoading={searchLoading}
             pendingRequests={pendingRequests}
             pendingChats={pendingChats}
+            sentRequests={sentRequests}
             handleSendRequest={handleSendRequest}
+            handleAcceptChatRequest={handleAcceptChatRequest}
+            handleRejectChatRequest={handleRejectChatRequest}
+            handleCancelSentRequest={handleCancelSentRequest}
           />
         </div>
         {/* Main chat area */}
@@ -329,24 +498,8 @@ export function ChatView({ onClose }: ChatViewProps) {
                 {chats && selectedChat !== null && (
                   <button
                     className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive transition"
-                    title="Remover chat"
-                    onClick={async () => {
-                      const chatId = chats[selectedChat]?.id;
-                      if (!chatId) return;
-                      if (!window.confirm("Tem certeza que deseja remover este chat?")) return;
-                      try {
-                        const res = await fetch(`/api/chats?chatId=${chatId}`, { method: "DELETE" });
-                        if (res.ok) {
-                          globalMutate((key) => typeof key === "string" && key.startsWith("/api/chats"));
-                          setSelectedChat(null);
-                          toast.success("Chat removido!");
-                        } else {
-                          toast.error("Erro ao remover chat.");
-                        }
-                      } catch {
-                        toast.error("Erro ao remover chat.");
-                      }
-                    }}
+                    title="Solicitar exclusão do chat"
+                    onClick={() => handleRequestChatDeletion(chats[selectedChat])}
                   >
                     <Trash size={18} />
                   </button>
@@ -504,11 +657,15 @@ interface SidebarContentProps {
   searchLoading: boolean;
   pendingRequests: Record<string, boolean>;
   pendingChats: PendingChat[];
+  sentRequests: PendingChat[];
   handleSendRequest: (user: User) => void;
+  handleAcceptChatRequest: (pendingChat: PendingChat) => void;
+  handleRejectChatRequest: (pendingChat: PendingChat) => void;
+  handleCancelSentRequest: (sentChat: PendingChat) => void;
 }
 // SidebarContent extraído para evitar duplicação
 function SidebarContent({
-  chats, selectedChat, setSelectedChat, newChatOpen, setNewChatOpen, searchTerm, setSearchTerm, searchResults, searchLoading, pendingRequests, pendingChats, handleSendRequest
+  chats, selectedChat, setSelectedChat, newChatOpen, setNewChatOpen, searchTerm, setSearchTerm, searchResults, searchLoading, pendingRequests, pendingChats, sentRequests, handleSendRequest, handleAcceptChatRequest, handleRejectChatRequest, handleCancelSentRequest
 }: SidebarContentProps) {
   return (
     <div className="flex flex-col h-full">
@@ -558,26 +715,51 @@ function SidebarContent({
       </div>
       <div className="border-b" />
       <div className="flex-1 overflow-y-auto">
-        {/* Chats pendentes no topo */}
+        {/* Solicitações recebidas (para o usuário B) */}
         {pendingChats.map((chat: PendingChat) => (
           <div
-            key={chat.id}
-            className="flex items-center gap-3 px-4 py-3 cursor-not-allowed border-b bg-muted/60 relative"
+            key={`received-${chat.id}`}
+            className="flex items-center gap-3 px-4 py-3 border-b bg-muted/60 relative"
           >
             <User className="text-muted-foreground" size={28} />
             <div className="flex-1 min-w-0">
               <div className="font-semibold truncate flex items-center gap-2">
                 {chat.name}
-                <Badge variant="secondary">Pendente</Badge>
+                <Badge variant="secondary">Solicitação</Badge>
               </div>
               <div className="text-xs text-muted-foreground truncate">{chat.last_message}</div>
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" variant="outline" onClick={() => handleAcceptChatRequest(chat)}>Aceitar</Button>
+                <Button size="sm" variant="outline" onClick={() => handleRejectChatRequest(chat)}>Recusar</Button>
+              </div>
             </div>
           </div>
         ))}
+
+        {/* Solicitações enviadas (para o usuário A) */}
+        {sentRequests.map((chat: PendingChat) => (
+          <div
+            key={`sent-${chat.id}`}
+            className="flex items-center gap-3 px-4 py-3 border-b bg-yellow-50 dark:bg-yellow-950/20 relative"
+          >
+            <User className="text-muted-foreground" size={28} />
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold truncate flex items-center gap-2">
+                {chat.name}
+                <Badge variant="outline" className="text-yellow-600 border-yellow-600">PENDENTE</Badge>
+              </div>
+              <div className="text-xs text-muted-foreground truncate">{chat.last_message}</div>
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" variant="outline" onClick={() => handleCancelSentRequest(chat)}>Cancelar</Button>
+              </div>
+            </div>
+          </div>
+        ))}
+
         {/* Chats reais */}
         {chats && chats.map((chat: Chat, idx: number) => (
           <div
-            key={chat.id}
+            key={`real-${chat.id}`}
             className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b hover:bg-accent transition ${selectedChat === idx ? "bg-primary/10" : ""}`}
             onClick={() => setSelectedChat(idx)}
           >
