@@ -74,7 +74,7 @@ export function ExpressMessageProvider({ children }: { children: ReactNode }) {
       }, scheduled.getTime() - now.getTime());
       return () => clearTimeout(timeout);
     }
-  }, [message?.scheduledAt, message?.active]);
+  }, [message?.scheduledAt, message?.active, message]);
 
   // Web Notification API
   useEffect(() => {

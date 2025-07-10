@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
 
-export async function GET(req: NextRequest, context: { params: { userId: string } }) {
-  const { userId } = await context.params;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+  const { userId } = await params;
   if (!userId) return NextResponse.json([]);
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -20,8 +20,8 @@ export async function GET(req: NextRequest, context: { params: { userId: string 
   }
 }
 
-export async function DELETE(req: NextRequest, context: { params: { userId: string } }) {
-  const { userId } = context.params;
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+  const { userId } = await params;
   const id = req.nextUrl.searchParams.get("id");
   if (!userId || !id) return NextResponse.json({ error: "userId e id obrigatórios" }, { status: 400 });
   const client = new Client({

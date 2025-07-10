@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { User, Search, Info, CircleDot, Trash, Pencil, Trash2 } from "lucide-react";
+import { User, Search, Info, CircleDot, Trash, Pencil } from "lucide-react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect } from "react";
@@ -56,7 +56,7 @@ export function ChatView() {
   // Mock: userId do usuário autenticado
   const { data: session } = useSession();
   const userId = (session?.user as User)?.id;
-  const { data: chats, isLoading: loadingChats } = useSWR(userId ? `/api/chats?userId=${userId}` : null, fetcher);
+  const { data: chats } = useSWR(userId ? `/api/chats?userId=${userId}` : null, fetcher);
   const [selectedChat, setSelectedChat] = useState<number | null>(null);
   const chatId = selectedChat !== null && chats ? chats[selectedChat]?.id : null;
   const { data: messages, isLoading: loadingMessages } = useSWR(
@@ -180,7 +180,7 @@ export function ChatView() {
         setPendingChats((prev) => prev.filter(p => p.userId?.toString() !== uid));
       }
     });
-  }, [chats, pendingRequests]);
+  }, [chats, pendingRequests, pendingChats.length]);
 
   // Função para enviar mensagem
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -277,7 +277,6 @@ export function ChatView() {
           <SheetContent side="left" className="w-72 p-0">
             <SidebarContent
               chats={chats}
-              loadingChats={loadingChats}
               selectedChat={selectedChat}
               setSelectedChat={setSelectedChat}
               newChatOpen={newChatOpen}
@@ -286,7 +285,6 @@ export function ChatView() {
               setSearchTerm={setSearchTerm}
               searchResults={searchResults}
               searchLoading={searchLoading}
-              session={session}
               pendingRequests={pendingRequests}
               pendingChats={pendingChats}
               handleSendRequest={handleSendRequest}
@@ -297,7 +295,6 @@ export function ChatView() {
         <div className="hidden md:flex w-80 min-w-[260px] border-r bg-muted/40 flex-col h-full">
           <SidebarContent
             chats={chats}
-            loadingChats={loadingChats}
             selectedChat={selectedChat}
             setSelectedChat={setSelectedChat}
             newChatOpen={newChatOpen}
@@ -306,7 +303,6 @@ export function ChatView() {
             setSearchTerm={setSearchTerm}
             searchResults={searchResults}
             searchLoading={searchLoading}
-            session={session}
             pendingRequests={pendingRequests}
             pendingChats={pendingChats}
             handleSendRequest={handleSendRequest}
@@ -462,7 +458,6 @@ export function ChatView() {
 // Tipar as props do SidebarContent
 interface SidebarContentProps {
   chats: Chat[];
-  loadingChats: boolean;
   selectedChat: number | null;
   setSelectedChat: (idx: number) => void;
   newChatOpen: boolean;
@@ -471,14 +466,13 @@ interface SidebarContentProps {
   setSearchTerm: (v: string) => void;
   searchResults: User[];
   searchLoading: boolean;
-  session: any;
   pendingRequests: Record<string, boolean>;
   pendingChats: PendingChat[];
   handleSendRequest: (user: User) => void;
 }
 // SidebarContent extraído para evitar duplicação
 function SidebarContent({
-  chats, loadingChats, selectedChat, setSelectedChat, newChatOpen, setNewChatOpen, searchTerm, setSearchTerm, searchResults, searchLoading, session, pendingRequests, pendingChats, handleSendRequest
+  chats, selectedChat, setSelectedChat, newChatOpen, setNewChatOpen, searchTerm, setSearchTerm, searchResults, searchLoading, pendingRequests, pendingChats, handleSendRequest
 }: SidebarContentProps) {
   return (
     <div className="flex flex-col h-full">

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcrypt";
 import { Client } from "pg";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
 export async function POST(req: NextRequest) {
   const { nome, sobrenome, email, senha } = await req.json();
   if (!nome || !sobrenome || !email || !senha) {

@@ -1,4 +1,6 @@
-import NextAuth from "next-auth";
+import NextAuth, { type AuthOptions, type Session, type User } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+import type { AdapterUser } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcrypt";
 import { Client } from "pg";
@@ -16,7 +18,7 @@ async function getUserByEmail(email: string) {
   return res.rows[0];
 }
 
-export const authOptions = {
+const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Email e Senha",
@@ -39,17 +41,17 @@ export const authOptions = {
     }),
   ],
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
   pages: {
     signIn: "/login",
   },
   callbacks: {
-    async session({ session, token }) {
-      if (token?.sub) session.user.id = token.sub;
+    async session({ session, token }: { session: Session; token: JWT; user?: AdapterUser; newSession?: Session; trigger?: "update" }) {
+      if (token?.sub && session.user) (session.user as { id?: string }).id = token.sub;
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: User | AdapterUser }) {
       if (user) token.id = user.id;
       return token;
     },

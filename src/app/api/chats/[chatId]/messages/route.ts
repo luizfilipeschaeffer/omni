@@ -4,8 +4,8 @@ import { Pool } from "pg";
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL?.includes('render') ? { rejectUnauthorized: false } : false });
 
 // GET: Lista todas as mensagens do chat
-export async function GET(req: NextRequest, context: { params: { chatId: string } }) {
-  const { chatId } = await context.params;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ chatId: string }> }) {
+  const { chatId } = await params;
   const messages = await pool.query(
     `SELECT m.id, m.user_id, u.name as user_name, m.content, m.created_at
      FROM messages m
@@ -18,8 +18,8 @@ export async function GET(req: NextRequest, context: { params: { chatId: string 
 }
 
 // POST: Cria uma nova mensagem no chat
-export async function POST(req: NextRequest, context: { params: { chatId: string } }) {
-  const { chatId } = await context.params;
+export async function POST(req: NextRequest, { params }: { params: Promise<{ chatId: string }> }) {
+  const { chatId } = await params;
   const body = await req.json();
   const { content, user_id } = body;
   if (!content || !user_id) {
@@ -33,8 +33,8 @@ export async function POST(req: NextRequest, context: { params: { chatId: string
 }
 
 // PUT: Edita o conteúdo de uma mensagem pelo id
-export async function PUT(req: NextRequest, context: { params: { chatId: string } }) {
-  const { chatId } = await context.params;
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ chatId: string }> }) {
+  const { chatId } = await params;
   const body = await req.json();
   const { id, content } = body;
   if (!id || !content) {
@@ -51,8 +51,8 @@ export async function PUT(req: NextRequest, context: { params: { chatId: string 
 }
 
 // DELETE: Remove uma mensagem pelo id
-export async function DELETE(req: NextRequest, context: { params: { chatId: string } }) {
-  const { chatId } = await context.params;
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ chatId: string }> }) {
+  const { chatId } = await params;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {

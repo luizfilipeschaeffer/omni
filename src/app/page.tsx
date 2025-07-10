@@ -4,9 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
-import { useTheme } from "next-themes";
-import { Sun, Moon, Laptop } from "lucide-react";
-import { useRef } from "react";
 import { BottomBar } from "@/components/BottomBar";
 import { useNotifications } from "@/components/NotificationsContext";
 import { LoginDrawer } from "@/components/LoginDrawer";
@@ -15,18 +12,8 @@ import { ChatView } from "../components/ChatModal";
 
 export default function Home() {
   const [liked, setLiked] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const [showToggle, setShowToggle] = useState(false);
-  const themeSwitcherRef = useRef<HTMLDivElement>(null);
   const { data: session, status } = useSession();
   const [chatOpen, setChatOpen] = useState(false);
-
-  // Função para obter o ícone do tema atual
-  const getThemeIcon = () => {
-    if (theme === "light") return <Sun size={16} />;
-    if (theme === "dark") return <Moon size={16} />;
-    return <Laptop size={16} />;
-  };
 
   const { addNotification } = useNotifications();
   const handleLike = () => {
